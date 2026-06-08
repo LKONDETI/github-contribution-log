@@ -62,7 +62,7 @@ Potential challenge: the project uses submodule-linked internal packages (`stoat
 
 ### Reproduction Evidence
 
-- **Commit showing reproduction:** TBD (will link once fork is set up)
+- **Commit showing reproduction:** [4bf46dcf](https://github.com/LKONDETI/for-web/commit/4bf46dcf) — current HEAD of fork; the buggy `TextEmbed.tsx` with `primary-container` tokens exists at this state ([view file](https://github.com/LKONDETI/for-web/blob/4bf46dcf/packages/client/components/ui/components/features/messaging/elements/TextEmbed.tsx))
 - **Screenshots/logs:** See original issue screenshot — [4d44e3f8](https://github.com/user-attachments/assets/4d44e3f8-e492-4690-92e9-bd74466736d3)
 - **My findings:** The `TextEmbed` component uses `--md-sys-color-primary-container` as the card background. In the `SchemeMonochrome` variant of Material Design 3, this token resolves to a **light gray in dark mode** rather than a dark color — the opposite of what we'd expect. The title uses `--md-sys-color-primary` which becomes white in dark mode, causing white-on-light-gray contrast.
 
@@ -108,7 +108,7 @@ Using UMPIRE framework (adapted):
 3. Manually test all theme variants (Monochrome, Tonal Spot, default) in both light and dark modes
 4. Verify the left accent border still renders correctly with `--md-sys-color-primary`
 
-**Implement:** TBD — will link branch and commits here as work progresses
+**Implement:** Working in fork [LKONDETI/for-web](https://github.com/LKONDETI/for-web) — will link feature branch and commits here as work progresses
 
 **Review:**
 - [ ] No hardcoded colors — only CSS variable tokens used
