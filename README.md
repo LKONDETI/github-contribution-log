@@ -3,7 +3,7 @@
 **Contribution Number:** 1
 **Student:** Lakshmi Sravani Kondeti
 **Issue:** [stoatchat/for-web#669 — Link Embeds in Dark Mode Unreadable](https://github.com/stoatchat/for-web/issues/669)
-**Status:** Phase I — In Progress
+**Status:** Phase II — In Progress
 
 ---
 
@@ -40,17 +40,41 @@ In dark mode with the Monochrome color scheme (and also Tonal Spot, per issue co
 
 ### Environment Setup
 
-The project is a pnpm monorepo using [mise](https://mise.jdx.dev/) as the task runner. Setup requires:
-- Node.js 26.2.0
-- pnpm 11.3.0
+The project is a pnpm monorepo using [mise-en-place](https://mise.jdx.dev/) as the task runner.
 
-Steps to get running locally:
-1. Install mise and run `mise install` to set up the correct Node/pnpm versions
-2. Run `mise install:frozen` to install locked dependencies
-3. Run `mise build:deps` to build internal packages (stoat.js, UI components, lingui i18n)
-4. Run `mise dev` to start the local dev server
+**Prerequisites:**
+- [Git](https://git-scm.com/install/) with submodule support
+- [mise-en-place](https://mise.jdx.dev/getting-started.html) (manages Node + pnpm versions automatically — no manual version switching needed)
 
-Potential challenge: the project uses submodule-linked internal packages (`stoat.js`, `solid-livekit-components`, `js-lingui-solid`) — these need to be built before the main client app can run.
+**Step-by-step setup:**
+
+```bash
+# 1. Clone your fork (with submodules — critical!)
+git clone --recursive https://github.com/LKONDETI/for-web
+cd for-web
+
+# 2. Install Node.js 26.2.0 + pnpm 11.3.0 via mise (reads from .mise.toml automatically)
+mise install:frozen
+
+# 3. Build internal packages (stoat.js, UI components, lingui i18n)
+#    This MUST run before the dev server — submodule packages need a build step
+mise build:deps
+
+# 4. Configure .env to connect to the official hosted backend (no local server needed)
+cp packages/client/.env.example packages/client/.env
+# Open packages/client/.env and comment out the local URL variables:
+#   #VITE_API_URL=http://localhost:14702
+#   #VITE_WS_URL=ws://localhost:14703
+#   #VITE_MEDIA_URL=http://localhost:14704
+#   #VITE_PROXY_URL=http://localhost:14705
+# With these commented out, the client auto-connects to stoat.chat backend
+
+# 5. Start the dev server
+mise dev
+# Navigate to http://local.revolt.chat:5173
+```
+
+**Key challenge:** `mise build:deps` must complete before `mise dev` works. The monorepo's internal packages (`stoat.js`, `solid-livekit-components`, `js-lingui-solid`) are git submodules that require a build step. Skipping this causes the dev server to fail with missing module errors.
 
 ### Steps to Reproduce
 
@@ -147,13 +171,43 @@ Explored the codebase to understand the project structure and locate the relevan
 
 ### Week 2 Progress
 
-TBD
+Successfully stood up the local development environment using `mise install:frozen` → `mise build:deps` → `mise dev`. Configured `packages/client/.env` to connect to the official stoat.chat backend (commented out local URL variables), so no local Stoat server was needed.
+
+**Bug Reproduction — confirmed:**
+1. Opened http://local.revolt.chat:5173 and logged in
+2. Went to **Settings → Appearance** → set Color Scheme to **Monochrome** + Mode to **Dark**
+3. Posted a URL (e.g., `https://github.com`) in a chat channel
+4. Observed the link embed card: **light gray background with white title text** — near-zero contrast, unreadable
+
+**Root cause confirmed in `TextEmbed.tsx`:**
+- `Base` component (lines 17–31) uses `--md-sys-color-primary-container` as background → resolves to light gray in Monochrome dark mode
+- `Title` component (line 63) uses `--md-sys-color-primary` → resolves to white in dark mode
+- Result: white text on a light gray card = unreadable
+
+**Fix planned — token swap in `TextEmbed.tsx`:**
+
+| Property | Token (current) | Token (proposed) | Why |
+|---|---|---|---|
+| `background` | `--md-sys-color-primary-container` | `--md-sys-color-surface-container-high` | Reliably dark in all M3 dark variants |
+| `color` | `--md-sys-color-on-primary-container` | `--md-sys-color-on-surface` | Correct contrast pair for surface tokens |
+| `border` | `--md-sys-color-primary` | keep as-is | Accent color, readable on dark surface |
+| Title `color` | `--md-sys-color-primary` | keep as-is (verify) | Link color — verify contrast after fix |
+
+Exact diff (lines 27–28 of `TextEmbed.tsx`):
+```diff
+- color: "var(--md-sys-color-on-primary-container)",
+- background: "var(--md-sys-color-primary-container)",
++ color: "var(--md-sys-color-on-surface)",
++ background: "var(--md-sys-color-surface-container-high)",
+```
+
+Next step: implement the change, verify visually across all theme variants (Monochrome, Tonal Spot, Vibrant) × (Light, Dark), then open a PR.
 
 ### Code Changes
 
-- **Files modified:** TBD (expected: `TextEmbed.tsx`)
-- **Key commits:** TBD
-- **Approach decisions:** Chose `surface-container-high` / `on-surface` over `inverse-surface` / `inverse-on-surface` because inverse tokens invert the entire surface color (designed for floating elements like snackbars), while surface-container tokens are the correct semantic choice for elevated card containers within the main UI.
+- **Files to modify:** `packages/client/components/ui/components/features/messaging/elements/TextEmbed.tsx` (lines 27–28)
+- **Key commits:** TBD — implementation pending
+- **Approach decisions:** Chose `surface-container-high` / `on-surface` over `inverse-surface` / `inverse-on-surface` because inverse tokens are designed for floating elements (snackbars, tooltips) that need to visually stand out against the surface — not for embedded cards within the content flow. `surface-container-high` is the semantically correct M3 token for elevated card containers, and it is guaranteed to produce a dark background in all M3 dark mode variants including Monochrome.
 
 ---
 
